@@ -15,6 +15,32 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    services:
+
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: frauddb
+          POSTGRES_USER: frauduser
+          POSTGRES_PASSWORD: fraudpassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U frauduser -d frauddb"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
     steps:
 
       - name: Checkout repository
@@ -34,6 +60,52 @@ jobs:
         run: |
           pytest -v
 
+      - name: Create database table
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_NAME: frauddb
+          DB_USER: frauduser
+          DB_PASSWORD: fraudpassword
+        run: |
+          python - <<'PY'
+          import os
+          import psycopg
+
+          connection = psycopg.connect(
+              host=os.environ["DB_HOST"],
+              port=os.environ["DB_PORT"],
+              dbname=os.environ["DB_NAME"],
+              user=os.environ["DB_USER"],
+              password=os.environ["DB_PASSWORD"]
+          )
+
+          with connection.cursor() as cursor:
+              cursor.execute(
+                  """
+                  CREATE TABLE IF NOT EXISTS transactions (
+                      id BIGSERIAL PRIMARY KEY,
+                      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                      step INTEGER NOT NULL,
+                      type VARCHAR(20) NOT NULL,
+                      amount DOUBLE PRECISION NOT NULL,
+                      old_balance_org DOUBLE PRECISION NOT NULL,
+                      new_balance_orig DOUBLE PRECISION NOT NULL,
+                      old_balance_dest DOUBLE PRECISION NOT NULL,
+                      new_balance_dest DOUBLE PRECISION NOT NULL,
+                      fraud_probability DOUBLE PRECISION NOT NULL,
+                      risk_decision VARCHAR(10) NOT NULL,
+                      anomaly_score DOUBLE PRECISION NOT NULL
+                  );
+                  """
+              )
+
+          connection.commit()
+          connection.close()
+
+          print("Database table created successfully")
+          PY
+
       - name: Build Docker image
         run: |
           docker build -t fraud-detection-api:ci .
@@ -42,8 +114,15 @@ jobs:
         run: |
           docker run -d \
             --name fraud-api-ci \
-            -p 8000:8000 \
+            --network host \
             -e API_KEY=fraud-dev-secret-2026 \
+            -e DB_HOST=127.0.0.1 \
+            -e DB_PORT=5432 \
+            -e DB_NAME=frauddb \
+            -e DB_USER=frauduser \
+            -e DB_PASSWORD=fraudpassword \
+            -e REDIS_HOST=127.0.0.1 \
+            -e REDIS_PORT=6379 \
             fraud-detection-api:ci
 
       - name: Wait for API health
@@ -53,6 +132,7 @@ jobs:
               echo "API is healthy"
               exit 0
             fi
+
             echo "Waiting for API..."
             sleep 2
           done
