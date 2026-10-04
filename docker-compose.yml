@@ -1,0 +1,108 @@
+services:
+
+  fraud-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: fraud-detection-api:1.4
+
+    container_name: fraud-api
+
+    ports:
+      - "8000:8000"
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      API_KEY: ${API_KEY}
+
+    restart: unless-stopped
+
+    depends_on:
+      - postgres
+      - redis
+
+
+  postgres:
+    image: postgres:16
+
+    container_name: fraud-postgres
+
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    restart: unless-stopped
+
+
+  redis:
+    image: redis:7-alpine
+
+    container_name: fraud-redis
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis_data:/data
+
+    restart: unless-stopped
+
+
+  prometheus:
+    image: prom/prometheus
+
+    container_name: fraud-prometheus
+
+    ports:
+      - "9090:9090"
+
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./configs/alerts.yml:/etc/prometheus/alerts.yml
+
+    depends_on:
+      - fraud-api
+
+    restart: unless-stopped
+
+
+  grafana:
+    image: grafana/grafana
+
+    container_name: fraud-grafana
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+    depends_on:
+      - prometheus
+
+    restart: unless-stopped
+
+
+volumes:
+
+  postgres_data:
+
+  redis_data:
+
+  grafana_data:

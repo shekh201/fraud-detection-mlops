@@ -1,0 +1,29 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment / secrets
+.env
+
+# Dataset
+data/raw/
+data/processed/
+
+# Trained models
+models/
+
+# MLflow
+mlruns/
+mlflow.db
+
+# Pytest
+.pytest_cache/
+
+# IDE
+.vscode/

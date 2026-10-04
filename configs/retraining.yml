@@ -1,0 +1,17 @@
+retraining:
+
+  enabled: true
+
+  min_training_rows: 100000
+
+  validation_pr_auc_threshold: 0.95
+
+  validation_recall_threshold: 0.95
+
+  validation_precision_threshold: 0.90
+
+  mlflow_experiment: "fraud-detection-xgboost"
+
+  registered_model_name: "fraud_detection_model"
+
+  champion_alias: "champion"
