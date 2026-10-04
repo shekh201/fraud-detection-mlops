@@ -56,10 +56,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run tests
-        run: |
-          python -m pytest -v
-
       - name: Create database table
         env:
           DB_HOST: 127.0.0.1
@@ -104,7 +100,6 @@ jobs:
           connection.close()
 
           print("Database table created successfully")
-          PY
 
       - name: Build Docker image
         run: |
@@ -115,6 +110,7 @@ jobs:
           docker run -d \
             --name fraud-api-ci \
             --network host \
+            -v "$GITHUB_WORKSPACE/tests:/app/tests:ro" \
             -e API_KEY=fraud-dev-secret-2026 \
             -e DB_HOST=127.0.0.1 \
             -e DB_PORT=5432 \
@@ -140,6 +136,20 @@ jobs:
           echo "API failed to become healthy"
           docker logs fraud-api-ci
           exit 1
+
+      - name: Run integration tests inside Docker
+        run: |
+          docker exec \
+            -e API_KEY=fraud-dev-secret-2026 \
+            -e DB_HOST=127.0.0.1 \
+            -e DB_PORT=5432 \
+            -e DB_NAME=frauddb \
+            -e DB_USER=frauduser \
+            -e DB_PASSWORD=fraudpassword \
+            -e REDIS_HOST=127.0.0.1 \
+            -e REDIS_PORT=6379 \
+            fraud-api-ci \
+            sh -c "cp -r /app/tests /tmp/tests && python -m pytest -v /tmp/tests"
 
       - name: Docker prediction smoke test
         run: |
