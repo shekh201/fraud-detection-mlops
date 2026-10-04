@@ -19,3 +19,4 @@ redis
 python-dotenv
 prometheus-client
 PyYAML
+pytest
