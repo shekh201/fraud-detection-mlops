@@ -56,6 +56,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Create CI test models
+        run: |
+          python -m tests.create_ci_models
+          rm -rf models/mlflow_champion
+          mv models/ci_mlflow_champion models/mlflow_champion
+
       - name: Create database table
         env:
           DB_HOST: 127.0.0.1
@@ -149,7 +155,7 @@ jobs:
             -e REDIS_HOST=127.0.0.1 \
             -e REDIS_PORT=6379 \
             fraud-api-ci \
-            sh -c "cp -r /app/tests /tmp/tests && python -m pytest -v /tmp/tests"
+            sh -c "rm -rf /tmp/tests && cp -r /app/tests /tmp/tests && python -m pytest -v /tmp/tests"
 
       - name: Docker prediction smoke test
         run: |

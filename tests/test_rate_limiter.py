@@ -119,16 +119,16 @@ def test_api_rate_limit():
     assert API_KEY != ""
 
     redis_client = redis.Redis(
-        host="localhost",
-        port=6379,
+        host=os.getenv("REDIS_HOST", "localhost"),
+        port=int(os.getenv("REDIS_PORT", "6379")),
         decode_responses=True
     )
 
-    client_ip = "172.18.0.1"
+    client_ip = "172.17.0.1"
 
-    redis_key = f"rate_limit:{client_ip}"
+    for key in redis_client.scan_iter("rate_limit:*"):
 
-    redis_client.delete(redis_key)
+        redis_client.delete(key)
 
     transaction = {
         "step": 900,
@@ -165,5 +165,5 @@ def test_api_rate_limit():
         assert response.status_code == 429
 
     finally:
-
-        redis_client.delete(redis_key)
+        for key in redis_client.scan_iter("rate_limit:*"):
+            redis_client.delete(key)
