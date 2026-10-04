@@ -10,6 +10,7 @@ on:
       - main
 
 jobs:
+
   test:
 
     runs-on: ubuntu-latest
@@ -32,3 +33,57 @@ jobs:
       - name: Run tests
         run: |
           pytest -v
+
+      - name: Build Docker image
+        run: |
+          docker build -t fraud-detection-api:ci .
+
+      - name: Start Docker container
+        run: |
+          docker run -d \
+            --name fraud-api-ci \
+            -p 8000:8000 \
+            -e API_KEY=fraud-dev-secret-2026 \
+            fraud-detection-api:ci
+
+      - name: Wait for API health
+        run: |
+          for i in {1..30}; do
+            if curl -fs http://localhost:8000/health; then
+              echo "API is healthy"
+              exit 0
+            fi
+            echo "Waiting for API..."
+            sleep 2
+          done
+
+          echo "API failed to become healthy"
+          docker logs fraud-api-ci
+          exit 1
+
+      - name: Docker prediction smoke test
+        run: |
+          curl -fs \
+            -X POST \
+            http://localhost:8000/predict \
+            -H "X-API-Key: fraud-dev-secret-2026" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "step": 900,
+              "type": "TRANSFER",
+              "amount": 100000.0,
+              "oldbalanceOrg": 100000.0,
+              "newbalanceOrig": 0.0,
+              "oldbalanceDest": 50000.0,
+              "newbalanceDest": 150000.0
+            }'
+
+      - name: Show Docker logs on failure
+        if: failure()
+        run: |
+          docker logs fraud-api-ci
+
+      - name: Stop Docker container
+        if: always()
+        run: |
+          docker rm -f fraud-api-ci || true
