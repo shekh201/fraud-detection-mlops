@@ -1,4 +1,5 @@
 import os
+import shutil
 
 import joblib
 import mlflow.pyfunc
@@ -13,6 +14,15 @@ from src.preprocessing import create_preprocessor
 
 
 MODEL_DIR = "models"
+
+
+def remove_readonly(func, path, exc_info):
+    """
+    Windows par read-only file/folder ko writable
+    banakar deletion ko dobara try karta hai.
+    """
+    os.chmod(path, 0o777)
+    func(path)
 
 
 def create_training_data():
@@ -114,6 +124,16 @@ def main():
         target
     )
 
+    # Save XGBoost model for CI integration tests
+    fraud_model_path = os.path.join(
+        MODEL_DIR,
+        "fraud_model.json"
+    )
+
+    fraud_model.save_model(
+        fraud_model_path
+    )
+
     anomaly_model = IsolationForest(
         n_estimators=20,
         contamination="auto",
@@ -151,6 +171,14 @@ def main():
         "ci_mlflow_champion"
     )
 
+    # Remove previous CI MLflow model.
+    # Windows permission issues are handled by remove_readonly().
+    if os.path.exists(mlflow_model_path):
+        shutil.rmtree(
+            mlflow_model_path,
+            onerror=remove_readonly
+        )
+
     mlflow.pyfunc.save_model(
         path=mlflow_model_path,
         python_model=packaged_model,
@@ -161,6 +189,11 @@ def main():
 
     print(
         "Fraud model:",
+        fraud_model_path
+    )
+
+    print(
+        "MLflow model:",
         mlflow_model_path
     )
 
@@ -179,6 +212,7 @@ def main():
             "anomaly_model.joblib"
         )
     )
+
 
 if __name__ == "__main__":
     main()
