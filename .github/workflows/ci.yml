@@ -59,8 +59,18 @@ jobs:
       - name: Create CI test models
         run: |
           python -m tests.create_ci_models
+
           rm -rf models/mlflow_champion
           mv models/ci_mlflow_champion models/mlflow_champion
+
+          echo "Generated CI model files:"
+          ls -lah models/
+          ls -lah models/mlflow_champion/
+
+          test -f models/fraud_model.json
+          test -f models/preprocessor.joblib
+          test -f models/anomaly_model.joblib
+          test -f models/mlflow_champion/MLmodel
 
       - name: Create database table
         env:
@@ -106,10 +116,24 @@ jobs:
           connection.close()
 
           print("Database table created successfully")
+          PY
 
       - name: Build Docker image
         run: |
           docker build -t fraud-detection-api:ci .
+
+      - name: Verify Docker model files
+        run: |
+          docker run --rm \
+            --entrypoint sh \
+            fraud-detection-api:ci \
+            -c "
+              ls -lah /app/models &&
+              test -f /app/models/fraud_model.json &&
+              test -f /app/models/preprocessor.joblib &&
+              test -f /app/models/anomaly_model.joblib &&
+              test -f /app/models/mlflow_champion/MLmodel
+            "
 
       - name: Start Docker container
         run: |
@@ -155,7 +179,7 @@ jobs:
             -e REDIS_HOST=127.0.0.1 \
             -e REDIS_PORT=6379 \
             fraud-api-ci \
-            sh -c "rm -rf /tmp/tests && cp -r /app/tests /tmp/tests && python -m pytest -v /tmp/tests"
+            python -m pytest -v /app/tests
 
       - name: Docker prediction smoke test
         run: |
@@ -177,7 +201,7 @@ jobs:
       - name: Show Docker logs on failure
         if: failure()
         run: |
-          docker logs fraud-api-ci
+          docker logs fraud-api-ci || true
 
       - name: Stop Docker container
         if: always()
