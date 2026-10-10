@@ -20,3 +20,6 @@ python-dotenv
 prometheus-client
 PyYAML
 pytest
+streamlit
+requests
+plotly

@@ -27,3 +27,10 @@ mlflow.db
 
 # IDE
 .vscode/
+
+# Kubernetes secrets (never commit credentials)
+k8s/api-secret.yaml
+k8s/postgres-secret.yaml
+
+# Local project inventory
+project-files.txt

@@ -1,0 +1,15 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: fraud-api-tls
+  namespace: fraud-detection
+
+spec:
+  secretName: fraud-api-tls
+
+  issuerRef:
+    name: fraud-local-issuer
+    kind: Issuer
+
+  dnsNames:
+    - fraud.localhost
